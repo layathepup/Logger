@@ -6,11 +6,12 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define CUST_PATH 01
 #define MAXPATHLEN 512
 #define MAXUSRNAME 128
-#define DEFAULT_BASE_PATH "/home"
+#define DEFAULT_BASE_PATH "/home/"
 #define DEFAULT_SUB_PATH "/Documents/Logs/"
 #define SEPERATOR "\n----\n\n"
 #define MAXFNAME 128
@@ -25,12 +26,11 @@ int main(int argc, char **argv)
 
     // get username
     int usrnamelen;
-    if ((usrnamelen = getlogin_r(user_name, MAXUSRNAME)) >= MAXUSRNAME) {
+    if (getlogin_r(user_name, MAXUSRNAME) >= MAXUSRNAME) {
         fprintf(stderr, "Logger: User name exceeds maximum allowed length "
                         "(%d)\n", MAXUSRNAME);
         exit(1);
     }
-    user_name[usrnamelen] = 0;
 
     path = (char *) calloc(MAXPATHLEN+MAXFNAME, sizeof(char));
     name = (char *) calloc(MAXFNAME, sizeof(char));
@@ -76,7 +76,8 @@ int main(int argc, char **argv)
     fp = fopen(strcat(path, name), "a");
 
     if (!fp) {
-        fprintf(stderr, "Could not open file: %s", path);
+        fprintf(stderr, "Could not open file: %s: error number: %d (%s)",
+                path, errno, strerror(errno));
         return -1;
     }
 

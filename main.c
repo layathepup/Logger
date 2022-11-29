@@ -5,19 +5,32 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 #define CUST_PATH 01
-#define MAXPATHLEN 1000
-#define DEFAULT_PATH "/home/jack/Documents/Logs/"
+#define MAXPATHLEN 512
+#define MAXUSRNAME 128
+#define DEFAULT_BASE_PATH "/home"
+#define DEFAULT_SUB_PATH "/Documents/Logs/"
 #define SEPERATOR "\n----\n\n"
-#define MAXFNAME 100
+#define MAXFNAME 128
 
 int main(int argc, char **argv)
 {
     int maxpathname = MAXPATHLEN + MAXFNAME;
-    char *path, *pathcpy, *name, c;
+    char *path, *path_iter, *name, c;
     int flags = 0;
     FILE *fp;
+    char user_name[MAXUSRNAME];
+
+    // get username
+    int usrnamelen;
+    if ((usrnamelen = getlogin_r(user_name, MAXUSRNAME)) >= MAXUSRNAME) {
+        fprintf(stderr, "Logger: User name exceeds maximum allowed length "
+                        "(%d)\n", MAXUSRNAME);
+        exit(1);
+    }
+    user_name[usrnamelen] = 0;
 
     path = (char *) calloc(MAXPATHLEN+MAXFNAME, sizeof(char));
     name = (char *) calloc(MAXFNAME, sizeof(char));
@@ -35,31 +48,29 @@ int main(int argc, char **argv)
             }
     }
 
-    // apply arguments using set argument flags
+    // apply arguments based on argument flags
     if (flags &= CUST_PATH) {
-        pathcpy = path;
-        while (c = *++argv[0]) {
-            if (!(maxpathname-- - 1)) {       // reverse 1 for null terminator
+        path_iter = path;
+        while ((c = *++argv[0])) {
+            if (!(maxpathname-- - 1)) {       // reserve 1 byte for null terminator
                 fprintf(stderr,
-                        "Logger: directory exceeds maximum length: %d", MAXPATHLEN);
+                        "Logger: path exceeds maximum character length: %d", MAXPATHLEN);
                 exit(1);
             }
-            *++pathcpy = c;
+            *++path_iter = c;
         }
-        *++pathcpy = '\0';
+        *++path_iter = '\0';
     }
-    else
-        strcpy(path, DEFAULT_PATH);
-
-    strcat(path, name);
-
-
-
+    else {
+        strcat(path, DEFAULT_BASE_PATH);
+        strcat(path, user_name);
+        strcat(path, DEFAULT_SUB_PATH);
+    }
 
     // get date to name file
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
-    sprintf(name, "Log-%02d.%02d.%04d.txt", tm.tm_mon, tm.tm_mday, tm.tm_year + 1900);
+    sprintf(name, "Log-%02d.%02d.%04d.txt", tm.tm_mon + 1, tm.tm_mday, tm.tm_year + 1900);
 
     //open file in append mode
     fp = fopen(strcat(path, name), "a");
@@ -70,7 +81,7 @@ int main(int argc, char **argv)
     }
 
     fprintf(fp, "%02d.%02d.%04d %02d:%02d:%02d\n\n",
-            tm.tm_mon, tm.tm_mday, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+            tm.tm_mon + 1, tm.tm_mday, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
     // insert log
     while ((c = getc(stdin)) != EOF)
